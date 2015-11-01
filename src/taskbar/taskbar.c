@@ -407,6 +407,7 @@ void visible_taskbar(void *p)
 	int j;
 
 	Taskbar *taskbar;
+
 	for (j=0 ; j < panel->nb_desktop ; j++) {
 		taskbar = &panel->taskbar[j];
 		if (panel_mode != MULTI_DESKTOP && taskbar->desktop != server.desktop) {
@@ -414,7 +415,65 @@ void visible_taskbar(void *p)
 			taskbar->area.on_screen = 0;
 		}
 		else {
-			taskbar->area.on_screen = 1;
+            //int desktopsPerMonitor = server.nb_desktop / server.nb_monitor;
+            //int monitorLowerBound = panel->monitor * desktopsPerMonitor;
+            //int monitorUpperBound = monitorLowerBound + desktopsPerMonitor;
+
+            //printf("bar_name %s\n", taskbar->bar_name.name);
+            //Attempting to extract the monitor name from the taskbar name
+            char name[256] = "";
+            int nameIndex = 0;
+            char monitorName[256] = "";
+            int monitorNameIndex = 0;
+            char currChar = ' ';
+            int currIndex = 0;
+            int foundUnderscore = 0;
+            do
+            {
+                currChar = taskbar->bar_name.name[currIndex];
+                if(currChar == '_')
+                {
+                    foundUnderscore = 1;
+                }
+                else
+                {
+                    if(foundUnderscore == 0)
+                    {
+                        name[nameIndex] = currChar;
+                        nameIndex++;
+                    }
+                    else
+                    {
+                        monitorName[monitorNameIndex] = currChar;
+                        monitorNameIndex++;
+                    }
+                }
+
+                currIndex++;
+            }
+            while(currChar != 0);
+
+            //Finishing the strings off with a null char
+            name[nameIndex] = 0;
+            monitorName[monitorNameIndex] = 0;
+
+            //Update the name of the task
+            //free(taskbar->bar_name.name);
+            //taskbar->bar_name.name = name;//name;
+            strcpy(taskbar->bar_name.name, name);
+
+            //printf(name);
+
+            //printf("%s", server.monitor[panel->monitor].names[0]);
+            gchar* currMonitorName = server.monitor[panel->monitor].names[0];
+            if(strcmp(currMonitorName, monitorName) == 0)
+            {
+			    taskbar->area.on_screen = 1;
+            }
+            else
+            {
+                taskbar->area.on_screen = 0;
+            }
 		}
 	}
 	panel_refresh = 1;
