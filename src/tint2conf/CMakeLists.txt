@@ -20,8 +20,9 @@ include_directories( ../util
                      ${RSVG_INCLUDE_DIRS} )
 
 set(SOURCES ../util/common.c
-			../util/strnatcmp.c
-			../config.c
+            ../util/strnatcmp.c
+            ../util/cache.c
+            ../config.c
             ../server.c
             ../launcher/apps-common.c
             ../launcher/icon-theme-common.c
@@ -63,7 +64,7 @@ endif( NOT DATADIR )
 add_definitions( -DINSTALL_PREFIX=\"${CMAKE_INSTALL_PREFIX}\" )
 add_definitions( -DLOCALEDIR=\"${CMAKE_INSTALL_PREFIX}/${DATADIR}/locale\" )
 add_definitions( -DGETTEXT_PACKAGE=\"tint2conf\" )
-set_target_properties( tint2conf PROPERTIES COMPILE_FLAGS "-Wall -pthread" )
+set_target_properties( tint2conf PROPERTIES COMPILE_FLAGS "-Wall -pthread -std=c99" )
 set_target_properties( tint2conf PROPERTIES LINK_FLAGS "-pthread" )
 
 add_subdirectory(po)

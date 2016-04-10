@@ -1,23 +1,125 @@
-2015-09-27 master
+2016-04-02 0.12.9
 - Fixes:
-  - Multiple batteries are now supported under Linux (issue #139; thanks to
-    Sebastian Reichel)
-  - The time left for charging/discharging the battery is now estimated when the
-    system is not able to read current data from sensors (issue #522; thanks to
-    Sebastian Reichel)
-  - The correct icon is now used in tint2.desktop (issue #523)
-  - The font setting for the desktop name is no longer lost on tint2 restart
+  - Regression: Do not detect empty areas as clickable (issue #572)
+  - Regression: Position and resize task icon correctly (issue #575)
+  - Use imlib2 for taking screenshot; if it fails, use Xlib (issue #574)
+  - Battery: lower sample frequency when there is no support for reading current/power
+
+2016-03-25 0.12.8
+- Major changes (see details below):
+  - Icon cache and lazy icon theme loading to improve performance in tint2 and tint2conf
+  - Extra tint2rc themes are installed to /usr/share/tint2 and available in tint2conf
+  - Tint2conf GUI improvements
+- Config options with changed behavior:
+  - The launcher now also allows launcher_item_app entries without a full path.
+    In this case the .desktop file is searched in the standard application directories (issue #565).
+  - If the panel size is given as a percentage and a non-zero margin is also specified,
+    the size is now computed as a fraction of the available size (i.e. monitor size - margin).
+    Before it was computed as a fraction of the monitor size first, then the margin was subtracted from the value, which
+    was not intuitive (issue #559).
+- Fixes:
+  - Taskbar icons are now resized correctly for certain geometries (issue #560)
+  - Fix get_version.sh so that it returns the correct version when .git is missing
+  - Fix build on powerpc
+  - Temporary files are now created in /tmp
+  - The XDG paths are now used in the icon and application lookup in addition to the hardcoded defaults
+  - Brigtness adjustments no longer distort colors
+  - Fixed race in sorting systray icons by name
+  - Fixed desktop entry parsing (issue #570)
+  - tint2conf:
+    - Applications are now sorted correctly
+    - Avoid duplicate icon themes due to symlinks
+    - Avoid loading desktop files marked as NoDisplay
+- Enhancements:
+  - Launcher icon paths are now cached, which greatly improves loading time for tint2 and tint2conf.
+    The correct icon should be found even if you change the icon theme or install a new theme.
+    If this is not the case, delete the file ~/.cache/tint2/icon.cache, restart tint2 and please file a bug report
+    indicating the application name and the icon theme name.
+  - Fallback icon themes are loaded lazily to speed up tint2 and tint2conf startup
+  - A better Name and GenericName is used in the tint2 and tint2conf .desktop files
+  - tint2conf:
+    - Allows selection of themes from /usr/share
+    - Menu reorganization (thanks @Vladimir-csp for feedback)
+    - Icon themes are now sorted in the displayed list
+    - Updated ru translation (thanks @Vladimir-csp)
+
+2016-01-29 0.12.7
+- Fixes:
+  - Fix crash caused by race when reading inconsistent values for _NET_CURRENT_DESKTOP and _NET_NUMBER_OF_DESKTOPS
+  - Fix regression (all desktop tasks not working)
+  - Fix small memory leak in launcher
+
+2016-01-25 0.12.6
+- Fixes:
+  - Fix crash on 32-bit systems (issue #546)
+  - Fix compilation on Slackware (issue #547)
+  - Terminal color reset code moved to the same line to prevent interference with logging (issue #545)
+- Enhancements:
+  - Executor now sends click coordinates via environment variables (issue #544)
+
+2016-01-24 0.12.5
+- Fixes:
+  - Fix rendering corruption triggered occasionally when the compositor is disabled (regression in 0.12.4)
+
+2016-01-23 0.12.4
+- Enhancements:
+  - Support for NETWM viewports (as used by Compiz or Unity) (issue #94)
+  - The default desktop font (Gtk/FontName from XSettings) is used when a font is not specified in the config file
+  - When no fonts are specified in the config, tint2 picks up the default font of the desktop environment via XSettings
+  - Tint2 is now able to dump a stack trace to stderr and ~/.tint2-crash.log in case of a crash.
+    If the cmake flag ENABLE_BACKTRACE is set, stack traces are dumped on X11 I/O errors.
+    If the cmake flag ENABLE_BACKTRACE_ON_SIGNAL is set, stack traces are dumped also on signals such as SIGSEGV.
+    Both ENABLE_BACKTRACE and ENABLE_BACKTRACE_ON_SIGNAL are disabled by default.
+  - Pixmaps are cached instead of always redrawn between different button states when mouse effects are enabled,
+    to improve performance
+  - Tooltips are no longer very wide
+  - Default config looks nicer
+- New config options:
+  - Executor: new plugin that displays the output of a command in the panel (issue #161)
+  - New taskbar sort order options: least-recently-used (lru), most-recently-used (mru) (issue #532)
+  - Place the primary monitor before all the other monitors (primary_monitor_first, issue #538)
+  - taskbar_always_show_all_desktop_tasks (issue #279)
+- Config options with changed behavior:
+  - Mouse effects are enabled by default
+- Fixes:
+  - Battery changes visibility correctly (issue #531)
+  - Fixed rendering corruption (issue #543)
+  - Reverted the window flags back to the value in 0.11 to make sure the window manager detects that tint2 is a panel
+    (affected kwin, bspwm; fixes issue #537, breaks issue #455)
+  - Fixed a rare crash caused by the system tray code
+  - The system tray now reorders icons correctly when the icon name changes and the sorting order is configured as
+    ascending or descending (affected GTK icons, which sometimes set their name late after creating the icon)
+  - Tint2conf no longer copies sample themes to ~/.config
+- New optional dependencies:
+  - libexecinfo on the *BSDs (only if the cmake flag ENABLE_BACKTRACE is set)
+
+2015-11-12 0.12.3
+- Enhancements:
+  - Battery: Multiple batteries are now supported under Linux (issue #139;
+    thanks to Sebastian Reichel)
+  - Battery: The time left for charging/discharging the battery is now estimated
+    when the system is not able to read current data from sensors (issue #522;
+    thanks to Sebastian Reichel)
+  - Battery: Reacts to plug/unplug events (thanks to Sebastian Reichel)
   - tint2conf: Backgrounds now have a text label showing which panel component
     uses them, to make them easier to identify; the label is saved as a comment
     in the config file (issue #521)
 - New config options:
-  - Option to enable battery tooltips
+  - Mouse over effects (mouse_effects, background_color_hover, border_color_hover)
+  - Launcher icon background (launcher_icon_background_id)
+  - Enable/disable battery tooltips (battery_tooltip_enabled)
+- Fixes:
+  - Updated French translation
+  - The correct icon is now used in tint2.desktop (issue #523)
+  - The font setting for the desktop name is no longer lost on tint2 restart
+
 2015-08-11 0.12.2
 - Fixes:
   - Systray: do not move empty icons to the side, as it breaks GTK2 StatusIcon blinking (issue #515)
   - tint2conf: Fix read of panel_monitor (issue #520)
   - Fix command line argument processing (issue #516)
   - Fix battery option parsing
+
 2015-08-01 0.12.1
 - Fixes:
   - Config:
@@ -34,6 +136,7 @@
 	- Bad read of option panel_margin
 - New config options:
   - Battery mouse actions and clock middle click and wheel actions (thanks to Jeff Blake)
+
 2015-07-12 0.12
 - Note: the changes listed here are based on the previous release tint2 0.11, however some distributions (e.g. Debian)
   offered packages using newer commits and/or patches; thus from the user's perspective some of these features are
