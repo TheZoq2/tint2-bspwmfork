@@ -17,77 +17,83 @@
 // backend's config and state variables.
 
 typedef struct ExecpBackend {
-	// Config:
-	// Command to execute at a specified interval
-	char *command;
-	// Interval in seconds
-	int interval;
-	// 1 if first line of output is an icon path
-	gboolean has_icon;
-	gboolean cache_icon;
-	int icon_w;
-	int icon_h;
-	char *tooltip;
-	gboolean centered;
-	gboolean has_font;
-	PangoFontDescription *font_desc;
-	Color font_color;
-	int continuous;
-	gboolean has_markup;
-	char *lclick_command;
-	char *mclick_command;
-	char *rclick_command;
-	char *uwheel_command;
-	char *dwheel_command;
-	// paddingxlr = horizontal padding left/right
-	// paddingx = horizontal padding between childs
-	int paddingxlr, paddingx, paddingy;
-	Background *bg;
+    // Config:
+    // Command to execute at a specified interval
+    char *command;
+    // Interval in seconds
+    int interval;
+    // 1 if first line of output is an icon path
+    gboolean has_icon;
+    gboolean cache_icon;
+    int icon_w;
+    int icon_h;
+    gboolean has_user_tooltip;
+    char *tooltip;
+    gboolean centered;
+    gboolean has_font;
+    PangoFontDescription *font_desc;
+    Color font_color;
+    int continuous;
+    gboolean has_markup;
+    char *lclick_command;
+    char *mclick_command;
+    char *rclick_command;
+    char *uwheel_command;
+    char *dwheel_command;
+    // paddingxlr = horizontal padding left/right
+    // paddingx = horizontal padding between childs
+    int paddingxlr, paddingx, paddingy;
+    Background *bg;
 
-	// Backend state:
-	timeout *timer;
-	int child_pipe;
-	pid_t child;
+    // Backend state:
+    Timer timer;
+    int child_pipe_stdout;
+    int child_pipe_stderr;
+    pid_t child;
 
-	// Command output buffer
-	char *buf_output;
-	int buf_length;
-	int buf_capacity;
+    // Command output buffer
+    char *buf_stdout;
+    ssize_t buf_stdout_length;
+    ssize_t buf_stdout_capacity;
+    char *buf_stderr;
+    ssize_t buf_stderr_length;
+    ssize_t buf_stderr_capacity;
 
-	// Text extracted from the output buffer
-	char *text;
-	// Icon path extracted from the output buffer
-	char *icon_path;
-	Imlib_Image icon;
-	char tooltip_text[512];
+    // Text extracted from the output buffer
+    char *text;
+    // Icon path extracted from the output buffer
+    char *icon_path;
+    Imlib_Image icon;
+    gchar tooltip_text[512];
 
-	// The time the last command was started
-	time_t last_update_start_time;
-	// The time the last output was obtained
-	time_t last_update_finish_time;
-	// The time it took to execute last command
-	time_t last_update_duration;
+    // The time the last command was started
+    time_t last_update_start_time;
+    // The time the last output was obtained
+    time_t last_update_finish_time;
+    // The time it took to execute last command
+    time_t last_update_duration;
 
-	// List of Execp which are frontends for this backend, one for each panel
-	GList *instances;
+    // List of Execp which are frontends for this backend, one for each panel
+    GList *instances;
+    GTree *cmd_pids;
 } ExecpBackend;
 
 typedef struct ExecpFrontend {
-	// Frontend state:
-	int iconx;
-	int icony;
-	int textx;
-	int texty;
-	int textw;
-	int texth;
+    // Frontend state:
+    int iconx;
+    int icony;
+    int textx;
+    int texty;
+    int textw;
+    int texth;
 } ExecpFrontend;
 
 typedef struct Execp {
-	Area area;
-	// All elements have the backend pointer set. However only backend elements have ownership.
-	ExecpBackend *backend;
-	// Set only for frontend Execp items.
-	ExecpFrontend *frontend;
+    Area area;
+    // All elements have the backend pointer set. However only backend elements have ownership.
+    ExecpBackend *backend;
+    // Set only for frontend Execp items.
+    ExecpFrontend *frontend;
 } Execp;
 
 // Called before the config is read and panel_config/panels are created.
@@ -128,13 +134,20 @@ void draw_execp(void *obj, cairo_t *c);
 gboolean resize_execp(void *obj);
 
 // Called on mouse click event.
-void execp_action(void *obj, int button, int x, int y);
+void execp_action(void *obj, int button, int x, int y, Time time);
+
+void execp_cmd_completed(Execp *obj, pid_t pid);
 
 // Called to check if new output from the command can be read.
 // No command might be running.
 // Returns 1 if the output has been updated and a redraw is needed.
 gboolean read_execp(void *obj);
 
+// Called for Execp front elements when the command output has changed.
+void execp_update_post_read(Execp *execp);
+
 void execp_default_font_changed();
+
+void handle_execp_events();
 
 #endif // EXECPLUGIN_H

@@ -1,7 +1,8 @@
 build
-<<<<<<< HEAD
 *.sw*
-=======
 *.user
 version.h
->>>>>>> d2b32d528f92891d4b185f6febd08835b231c3a3
+*.pyc
+*.todo
+packaging/make_ubuntu2.sh
+test_*.log

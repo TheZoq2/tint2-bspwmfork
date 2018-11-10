@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Requirements: devscripts
+
 set -x
 
 rm -rf tint2* 2>/dev/null || true
@@ -19,7 +21,7 @@ then
     exit 1
 fi
 rm -f version.h
-VERSION=$(git describe --exact-match 2>/dev/null)
+VERSION=$(false 2>/dev/null)
 if [ $? -eq 0 ]
 then
     VERSION=$(echo "$VERSION" | sed 's/^v//')
@@ -28,6 +30,8 @@ else
     VERSION="$(git show -s --pretty=format:%cI.%ct.%h | tr -d ':' | tr -d '-' | tr '.' '-' | sed 's/T[0-9\+]*//g').$MINOR"
     REPO="tint2-git"
 fi
+
+set -e
 
 # Export repository contents to source directory
 DIR=tint2-$VERSION
@@ -43,9 +47,9 @@ rm -f $DIR/make_release.sh
 echo "echo \"#define VERSION_STRING \\\"$VERSION\\\"\" > version.h" > $DIR/get_version.sh
 
 # Copy the debian files into the source directory
-cp -r ubuntu $DIR/debian
+cp -r debian $DIR/debian
 
-for DISTRO in precise trusty wily xenial
+for DISTRO in trusty xenial artful bionic
 do
     # Cleanup from previous builds
     rm -rf tint2_$VERSION-*

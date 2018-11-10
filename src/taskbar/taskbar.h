@@ -12,43 +12,53 @@
 #include "taskbarname.h"
 
 typedef enum TaskbarState {
-	TASKBAR_NORMAL = 0,
-	TASKBAR_ACTIVE,
-	TASKBAR_STATE_COUNT,
+    TASKBAR_NORMAL = 0,
+    TASKBAR_ACTIVE,
+    TASKBAR_STATE_COUNT,
 } TaskbarState;
 
 typedef enum TaskbarSortMethod {
-	TASKBAR_NOSORT = 0,
-	TASKBAR_SORT_CENTER,
-	TASKBAR_SORT_TITLE,
-	TASKBAR_SORT_LRU,
-	TASKBAR_SORT_MRU,
+    TASKBAR_NOSORT = 0,
+    TASKBAR_SORT_CENTER,
+    TASKBAR_SORT_TITLE,
+    TASKBAR_SORT_LRU,
+    TASKBAR_SORT_MRU,
 } TaskbarSortMethod;
 
+typedef enum ThumbnailUpdateMode {
+    THUMB_MODE_ACTIVE_WINDOW = 0,
+    THUMB_MODE_TOOLTIP_WINDOW,
+    THUMB_MODE_ALL
+} ThumbnailUpdateMode;
+
 typedef struct {
-	Area area;
-	gchar *name;
-	int posy;
+    Area area;
+    gchar *name;
+    int posy;
 } TaskbarName;
 
 typedef struct {
-	Area area;
-	int desktop;
-	TaskbarName bar_name;
-	int text_width;
+    Area area;
+    int desktop;
+    TaskbarName bar_name;
+    int text_width;
 } Taskbar;
 
 typedef struct GlobalTaskbar {
-	Area area;
-	Area area_name;
-	Background *background[TASKBAR_STATE_COUNT];
-	Background *background_name[TASKBAR_STATE_COUNT];
+    Area area;
+    Area area_name;
+    Background *background[TASKBAR_STATE_COUNT];
+    Background *background_name[TASKBAR_STATE_COUNT];
+    GList *gradient[TASKBAR_STATE_COUNT];
+    GList *gradient_name[TASKBAR_STATE_COUNT];
 } GlobalTaskbar;
 
 extern gboolean taskbar_enabled;
 extern gboolean taskbar_distribute_size;
+extern gboolean hide_task_diff_desktop;
 extern gboolean hide_inactive_tasks;
 extern gboolean hide_task_diff_monitor;
+extern gboolean hide_taskbar_if_empty;
 extern gboolean always_show_all_desktop_tasks;
 extern TaskbarSortMethod taskbar_sort_method;
 extern Alignment taskbar_alignment;
@@ -68,6 +78,7 @@ void init_taskbar_panel(void *p);
 
 gboolean resize_taskbar(void *obj);
 void taskbar_default_font_changed();
+void taskbar_start_thumbnail_timer(ThumbnailUpdateMode mode);
 
 // Reloads the entire list of tasks from the window manager and recreates the task buttons.
 void taskbar_refresh_tasklist();
@@ -79,10 +90,13 @@ Task *get_task(Window win);
 // However for windows shown on all desktops, there are multiple buttons, one for each taskbar.
 GPtrArray *get_task_buttons(Window win);
 
+// Change state of a taskbar (ACTIVE or NORMAL)
 void set_taskbar_state(Taskbar *taskbar, TaskbarState state);
 
-// Updates the visibility of each taskbar when the current desktop changes.
-void update_taskbar_visibility(void *p);
+// Updates the visibility of all taskbars
+void update_all_taskbars_visibility();
+
+void update_minimized_icon_positions(void *p);
 
 // Sorts the taskbar(s) on which the window is present.
 void sort_taskbar_for_win(Window win);

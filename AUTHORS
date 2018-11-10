@@ -23,6 +23,15 @@ Contributors:
   Craig Oakes : WM flags, issue tracker organization
   Jeff Blake (https://gitlab.com/u/berkley4) : more mouse event handlers
   Vladimir <vladimir-csp@yandex.ru> : translations, bug reports
+  Christophe D. <stophe72.d@gmail.com> : non-rectangular borders
+  Benoit Averty : taskbar enhancements
+  Justin Jacobs : tint2conf fixes
+  Oskari Rauta : separator plugin, gradients
+  Michael Messmore : Support for Path in .desktop files
+  Matthew Otnel : config option systray_name_filter
+  Ryan Gray, Jeff Blake (https://gitlab.com/berkley4) : battery format
+  aaaz (https://gitlab.com/aaaz) : clock fixes
+  heisenbug (https://gitlab.com/heisenbugh) : taskbar button tinting with icon color
 
 Translations:
   Bosnian:
@@ -37,3 +46,5 @@ Translations:
     Daniel Napora <napcok@gmail.com>
   Serbian:
     Dino Duratović <dinomol@mail.com>
+  Spanish:
+    Vic <vicmz@yandex.com>

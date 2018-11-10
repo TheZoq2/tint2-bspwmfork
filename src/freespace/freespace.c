@@ -30,65 +30,97 @@
 #include "freespace.h"
 #include "common.h"
 
+int freespace_area_compute_desired_size(void *obj);
+
 void init_freespace_panel(void *p)
 {
-	Panel *panel = (Panel *)p;
-	FreeSpace *freespace = &panel->freespace;
+    Panel *panel = (Panel *)p;
 
-	if (!freespace->area.bg)
-		freespace->area.bg = &g_array_index(backgrounds, Background, 0);
-	freespace->area.parent = p;
-	freespace->area.panel = p;
-	snprintf(freespace->area.name, sizeof(freespace->area.name), "Freespace");
-	freespace->area.size_mode = LAYOUT_FIXED;
-	freespace->area.resize_needed = 1;
-	freespace->area.on_screen = TRUE;
-	freespace->area._resize = resize_freespace;
+    // Make sure this is only done once if there are multiple items
+    if (panel->freespace_list)
+        return;
+
+    for (size_t k = 0; k < strlen(panel_items_order); k++) {
+        if (panel_items_order[k] == 'F') {
+            FreeSpace *freespace = (FreeSpace *)calloc(1, sizeof(FreeSpace));
+            panel->freespace_list = g_list_append(panel->freespace_list, freespace);
+            if (!freespace->area.bg)
+                freespace->area.bg = &g_array_index(backgrounds, Background, 0);
+            freespace->area.parent = p;
+            freespace->area.panel = p;
+            snprintf(freespace->area.name, sizeof(freespace->area.name), "Freespace");
+            freespace->area.size_mode = LAYOUT_FIXED;
+            freespace->area.resize_needed = 1;
+            freespace->area.on_screen = TRUE;
+            freespace->area._resize = resize_freespace;
+            freespace->area._compute_desired_size = freespace_area_compute_desired_size;
+        }
+    }
 }
 
-int freespace_get_max_size(Panel *p)
+void cleanup_freespace(Panel *panel)
 {
-	// Get space used by every element except the freespace
-	int size = 0;
-	for (GList *walk = p->area.children; walk; walk = g_list_next(walk)) {
-		Area *a = (Area *)walk->data;
+    if (panel->freespace_list)
+        g_list_free_full(panel->freespace_list, free);
+    panel->freespace_list = NULL;
+}
 
-		if (a->_resize == resize_freespace || !a->on_screen)
-			continue;
+int freespace_get_max_size(Panel *panel)
+{
+    if (panel_shrink)
+        return 0;
+    // Get space used by every element except the freespace
+    int size = 0;
+    int spacers = 0;
+    for (GList *walk = panel->area.children; walk; walk = g_list_next(walk)) {
+        Area *a = (Area *)walk->data;
 
-		if (panel_horizontal)
-			size += a->width + (a->bg->border.width * 2) + p->area.paddingx;
-		else
-			size += a->height + (a->bg->border.width * 2) + p->area.paddingy;
-	}
+        if (!a->on_screen)
+            continue;
+        if (a->_resize == resize_freespace) {
+            spacers++;
+            continue;
+        }
 
-	if (panel_horizontal)
-		size = p->area.width - size - (p->area.bg->border.width * 2) - p->area.paddingxlr;
-	else
-		size = p->area.height - size - (p->area.bg->border.width * 2) - p->area.paddingxlr;
+        if (panel_horizontal)
+            size += a->width + panel->area.paddingx * panel->scale;
+        else
+            size += a->height + panel->area.paddingy * panel->scale;
+    }
 
-	return size;
+    if (panel_horizontal)
+        size = panel->area.width - size - left_right_border_width(&panel->area) - panel->area.paddingxlr * panel->scale;
+    else
+        size = panel->area.height - size - top_bottom_border_width(&panel->area) - panel->area.paddingxlr * panel->scale;
+
+    return size / spacers;
+}
+
+int freespace_area_compute_desired_size(void *obj)
+{
+    FreeSpace *freespace = (FreeSpace *)obj;
+    return freespace_get_max_size((Panel *)freespace->area.panel);
 }
 
 gboolean resize_freespace(void *obj)
 {
-	FreeSpace *freespace = (FreeSpace *)obj;
-	Panel *panel = (Panel *)freespace->area.panel;
-	if (!freespace->area.on_screen)
-		return FALSE;
+    FreeSpace *freespace = (FreeSpace *)obj;
+    Panel *panel = (Panel *)freespace->area.panel;
+    if (!freespace->area.on_screen)
+        return FALSE;
 
-	int old_size = panel_horizontal ? freespace->area.width : freespace->area.height;
-	int size = freespace_get_max_size(panel);
-	if (old_size == size)
-		return FALSE;
+    int old_size = panel_horizontal ? freespace->area.width : freespace->area.height;
+    int size = freespace_get_max_size(panel);
+    if (old_size == size)
+        return FALSE;
 
-	if (panel_horizontal) {
-		freespace->area.width = size;
-	} else {
-		freespace->area.height = size;
-	}
+    if (panel_horizontal) {
+        freespace->area.width = size;
+    } else {
+        freespace->area.height = size;
+    }
 
-	schedule_redraw(&freespace->area);
-	panel_refresh = TRUE;
-	return TRUE;
+    schedule_redraw(&freespace->area);
+    schedule_panel_redraw();
+    return TRUE;
 }

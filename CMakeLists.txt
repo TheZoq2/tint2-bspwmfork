@@ -1,11 +1,12 @@
 project( tint2 )
-cmake_minimum_required( VERSION 2.6 )
+cmake_minimum_required( VERSION 2.8.5 )
 
 option( ENABLE_BATTERY "Enable battery status plugin" ON )
 option( ENABLE_TINT2CONF "Enable tint2conf build, a GTK+2 theme configurator for tint2" ON )
 option( ENABLE_EXTRA_THEMES "Install additional tint2 themes" ON )
 option( ENABLE_RSVG "Rsvg support (launcher only)" ON )
 option( ENABLE_SN "Startup notification support" ON )
+option( ENABLE_TRACING "Build tint2 with tracing instrumentation" OFF )
 option( ENABLE_ASAN "Build tint2 with AddressSanitizer" OFF )
 option( ENABLE_BACKTRACE "Dump a backtrace in case of fatal errors (e.g. X11 I/O error)" OFF )
 option( ENABLE_BACKTRACE_ON_SIGNAL "Dump a backtrace also when receiving signals such as SIGSEGV" OFF )
@@ -13,10 +14,18 @@ if( CMAKE_SYSTEM_NAME STREQUAL "Linux" )
   option( ENABLE_UEVENT "Kernel event handling support" ON )
 endif( CMAKE_SYSTEM_NAME STREQUAL "Linux" )
 
+include( GNUInstallDirs )
+if(NOT docdir)
+  set(docdir ${CMAKE_INSTALL_DOCDIR})
+endif()
+if(NOT htmldir)
+  set(htmldir ${docdir}/html)
+endif()
+
 include( FindPkgConfig )
 include( CheckLibraryExists )
 include( CheckCSourceCompiles )
-pkg_check_modules( X11 REQUIRED x11 xcomposite xdamage xinerama xrender xrandr>=1.3 )
+pkg_check_modules( X11 REQUIRED x11 xcomposite xdamage xinerama xext xrender xrandr>=1.3 )
 pkg_check_modules( PANGOCAIRO REQUIRED pangocairo )
 pkg_check_modules( PANGO REQUIRED pango )
 pkg_check_modules( CAIRO REQUIRED cairo )
@@ -53,6 +62,17 @@ else()
 	set(BACKTRACE_L_FLAGS "")
 endif()
 
+check_c_source_compiles(
+    "#define print(x) _Generic((x), default : print_unknown)(x) \n void print_unknown(){} \n int main () { print(0); }"
+    HAS_GENERIC)
+
+if(HAS_GENERIC)
+    add_definitions(-DHAS_GENERIC)
+    set(CSTD "c11")
+else()
+    set(CSTD "c99")
+endif(HAS_GENERIC)
+
 if( ENABLE_RSVG )
 pkg_check_modules( RSVG librsvg-2.0>=2.14.0 )
 endif( ENABLE_RSVG )
@@ -74,7 +94,13 @@ if( NOT IMLIB_BUILD_WITH_X )
   message( FATAL_ERROR "Imlib is not built with X support" )
 endif( NOT IMLIB_BUILD_WITH_X )
 
-add_definitions( -D_GNU_SOURCE )
+
+add_definitions( -D_BSD_SOURCE -D_DEFAULT_SOURCE -D_WITH_GETLINE )
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_definitions( -D_POSIX_C_SOURCE=200809L )
+endif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+
 
 include_directories( ${PROJECT_BINARY_DIR}
                      src
@@ -86,7 +112,9 @@ include_directories( ${PROJECT_BINARY_DIR}
                      src/tooltip
                      src/util
                      src/execplugin
+                     src/button
                      src/freespace
+                     src/separator
                      ${X11_INCLUDE_DIRS}
                      ${PANGOCAIRO_INCLUDE_DIRS}
                      ${PANGO_INCLUDE_DIRS}
@@ -99,8 +127,14 @@ include_directories( ${PROJECT_BINARY_DIR}
 
 set( SOURCES src/config.c
              src/panel.c
-             src/server.c
-             src/tint.c
+             src/util/server.c
+             src/main.c
+             src/init.c
+             src/util/signals.c
+             src/util/tracing.c
+             src/mouse_actions.c
+             src/drag_and_drop.c
+             src/default_icon.c
              src/clock/clock.c
              src/systray/systraybar.c
              src/launcher/launcher.c
@@ -113,12 +147,22 @@ set( SOURCES src/config.c
              src/taskbar/taskbarname.c
              src/tooltip/tooltip.c
              src/execplugin/execplugin.c
+             src/button/button.c
              src/freespace/freespace.c
+             src/separator/separator.c
+             src/tint2rc.c
              src/util/area.c
              src/util/common.c
+             src/util/fps_distribution.c
              src/util/strnatcmp.c
              src/util/timer.c
              src/util/cache.c
+             src/util/color.c
+             src/util/strlcat.c
+             src/util/print.c
+             src/util/gradient.c
+             src/util/test.c
+             src/util/uevent.c
              src/util/window.c )
 
 if( ENABLE_BATTERY )
@@ -159,7 +203,6 @@ endif( ENABLE_SN)
 
 if( ENABLE_UEVENT )
   add_definitions( -DENABLE_UEVENT )
-  set( SOURCES ${SOURCES} src/util/uevent.c)
 endif( ENABLE_UEVENT )
 
 if(ENABLE_BACKTRACE)
@@ -189,19 +232,23 @@ if( ENABLE_TINT2CONF )
 endif( ENABLE_TINT2CONF )
 
 if( ENABLE_ASAN )
-  SET(ASAN_C_FLAGS " -O0 -g3 -gdwarf-2 -fsanitize=address -fno-common -fno-omit-frame-pointer -rdynamic -Wshadow")
-  SET(ASAN_L_FLAGS " -O0 -g3 -gdwarf-2 -fsanitize=address -fno-common -fno-omit-frame-pointer -rdynamic ")
+  SET(ASAN_C_FLAGS " -O0 -g3 -fsanitize=address -fno-common -fno-omit-frame-pointer -rdynamic -Wshadow")
+  SET(ASAN_L_FLAGS " -O0 -g3 -fsanitize=address -fno-common -fno-omit-frame-pointer -rdynamic -fuse-ld=gold ")
 else()
   SET(ASAN_C_FLAGS "")
   SET(ASAN_L_FLAGS "")
 endif()
 
-set( MANDIR share/man CACHE PATH "Directory for man pages" )
-set( DATADIR share CACHE PATH "Directory for shared data" )
-set( SYSCONFDIR /etc CACHE PATH "Directory for configuration files" )
-set( DOCDIR share/doc/tint2 CACHE PATH "Directory for documentation files" )
+if( ENABLE_TRACING )
+  add_definitions( -DHAVE_TRACING )
+  SET(TRACING_C_FLAGS " -finstrument-functions -finstrument-functions-exclude-file-list=tracing.c -finstrument-functions-exclude-function-list=get_time,gettime -O0 -g3 -fno-common -fno-omit-frame-pointer -rdynamic")
+  SET(TRACING_L_FLAGS " -O0 -g3 -fno-common -fno-omit-frame-pointer -rdynamic")
+else()
+  SET(TRACING_C_FLAGS "")
+  SET(TRACING_L_FLAGS "")
+endif()
 
-add_custom_target( version ALL "${PROJECT_SOURCE_DIR}/get_version.sh" "\"${PROJECT_SOURCE_DIR}\"" )
+add_custom_target( version ALL "${PROJECT_SOURCE_DIR}/get_version.sh" )
 
 link_directories( ${X11_LIBRARY_DIRS}
                   ${PANGOCAIRO_LIBRARY_DIRS}
@@ -235,17 +282,18 @@ endif( RT_LIBRARY )
 target_link_libraries( tint2 m )
 
 add_dependencies( tint2 version )
-set_target_properties( tint2 PROPERTIES COMPILE_FLAGS "-Wall -Wpointer-arith -fno-strict-aliasing -pthread -std=c99 ${ASAN_C_FLAGS}" )
-set_target_properties( tint2 PROPERTIES LINK_FLAGS "-pthread -fno-strict-aliasing ${ASAN_L_FLAGS} ${BACKTRACE_L_FLAGS}" )
+set_target_properties( tint2 PROPERTIES COMPILE_FLAGS "-Wall -Wpointer-arith -fno-strict-aliasing -pthread -std=${CSTD} ${ASAN_C_FLAGS} ${TRACING_C_FLAGS}" )
+set_target_properties( tint2 PROPERTIES LINK_FLAGS "-pthread -fno-strict-aliasing ${ASAN_L_FLAGS} ${BACKTRACE_L_FLAGS}  ${TRACING_L_FLAGS}" )
 
 install( TARGETS tint2 DESTINATION bin )
-install( FILES tint2.svg DESTINATION ${DATADIR}/icons/hicolor/scalable/apps )
-install( FILES tint2.desktop DESTINATION ${DATADIR}/applications )
-install( CODE "execute_process(COMMAND gtk-update-icon-cache -f -t ${DATADIR}/icons/hicolor WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX})" )
-install( FILES themes/tint2rc DESTINATION ${SYSCONFDIR}/xdg/tint2 )
-install( FILES default_icon.png DESTINATION ${DATADIR}/tint2 )
-install( FILES AUTHORS ChangeLog README.md DESTINATION ${DOCDIR} )
-install( FILES doc/tint2.1 DESTINATION ${MANDIR}/man1 )
+install( FILES tint2.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps )
+install( FILES tint2.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications )
+install( FILES themes/tint2rc DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/xdg/tint2 )
+install( FILES default_icon.png DESTINATION ${CMAKE_INSTALL_DATADIR}/tint2 )
+install( FILES AUTHORS ChangeLog README.md doc/tint2.md DESTINATION ${docdir} )
+install( FILES doc/manual.html doc/readme.html DESTINATION ${htmldir} )
+install( DIRECTORY doc/images DESTINATION ${htmldir} )
+install( FILES doc/tint2.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1 )
 if( ENABLE_EXTRA_THEMES )
   add_subdirectory(themes)
 endif( ENABLE_EXTRA_THEMES )
